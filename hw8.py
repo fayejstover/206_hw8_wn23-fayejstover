@@ -7,26 +7,42 @@ import matplotlib.pyplot as plt
 import os
 import sqlite3
 import unittest
+
+
+
 def load_rest_data(db):
     """
-    This function accepts the file name of a database as a parameter and returns a
-    nested
-    dictionary. Each outer key of the dictionary is the name of each restaurant in
-    the database,
-    and each inner key is a dictionary, where the key:value pairs should be the
-    category,
-    building, and rating for the restaurant.
+    This function accepts the filename of a database as a parameter and returns a
+    nested dictionary. Each outer key of the dictionary is the name of each restaurant in
+    the database, and each inner key is a dictionary, where the key:value pairs should be the
+    category, building, and rating for the restaurant.
     """
 
+    rest_data = {}
     conn = sqlite3.connect(db)
     c = conn.cursor()
-    c.execute("SELECT name, category, building, rating FROM restaurants")
-    rows = c.fetchall()
-    rest_dict = {}
-    for row in rows:
-        rest_dict[row[0]] = {'category': row[1], 'building': row[2], 'rating': row[3]}
+
+    c.execute("SELECT * FROM restaurants;")
+
+    for row in c.fetchall():
+        
+        name = row[1]
+        category_id = row[2]
+        building_id = row[3]
+        rating = row[4]
+
+        c.execute("SELECT category FROM categories WHERE id = ? ", (category_id,))
+        category_name = c.fetchone()[0]
+
+        c.execute("SELECT building FROM buildings WHERE id = ?", (building_id,))
+        building_num = c.fetchone()[0]
+
+        rest_data[name] = {'category': category_name, 'building': building_num, 'rating': rating}
+
     conn.close()
-    return rest_dict
+    
+    return rest_data
+
 
 
 def plot_rest_categories(db):
@@ -37,31 +53,32 @@ def plot_rest_categories(db):
     chart with restaurant categories and the count of number of restaurants in each
     category.
     """
-    # Connect to the database and create a cursor
+    
     conn = sqlite3.connect(db)
     c = conn.cursor()
     
-    # Execute a query to get the count of restaurants in each category
-    c.execute("SELECT category, COUNT(*) FROM restaurants GROUP BY category")
+    # hint: use the SQL COUNT keyword
+    c.execute("""
+        SELECT categories.category, COUNT(restaurants.id) AS count
+        FROM categories
+        JOIN restaurants ON categories.id = restaurants.category_id
+        GROUP BY categories.category
+        ORDER BY count DESC
+    """)
     
-    # Fetch the results and create the dictionary
-    rest_categories = {}
-    for row in c.fetchall():
-        rest_categories[row[0]] = row[1]
-    
-    # Create the bar chart
-    plt.bar(rest_categories.keys(), rest_categories.values())
-    plt.xticks(rotation=90)
-    plt.xlabel('Restaurant Category')
-    plt.ylabel('Number of Restaurants')
-    plt.title('Number of Restaurants in Each Category')
+    categories = dict(c.fetchall())
+    conn.close()
+
+    # make bar chart
+    fig, ax = plt.subplots()
+    ax.barh(list(categories.keys()), list(categories.values()))
+    ax.set_xlabel('Number of Restaurants')
+    ax.set_ylabel('Restaurant Categories')
+    ax.set_title('Type of Restaurant on South University Ave')
     plt.show()
     
-    # Close the cursor and connection
-    c.close()
-    conn.close()
-    
-    return rest_categories
+    return categories
+
 
 
 def find_rest_in_building(building_num, db):
@@ -72,14 +89,17 @@ def find_rest_in_building(building_num, db):
     specific building. The restaurants
     should be sorted by their rating from highest to lowest.
     '''
-    
+
     conn = sqlite3.connect(db)
     c = conn.cursor()
-    c.execute('''SELECT name FROM restaurants WHERE building = ? ORDER BY rating DESC''', (building_num,))
-    result = [row[0] for row in c.fetchall()]
-    conn.close()
-    return result
 
+    c.execute("SELECT name FROM restaurants WHERE building_id = ? ORDER BY rating DESC", (building_num,))
+    results = [row[0] for row in c.fetchall()]
+
+    conn.close()
+
+    return results
+    
 
 #EXTRA CREDIT
 def get_highest_rating(db): #Do this through DB as well
@@ -97,11 +117,12 @@ def get_highest_rating(db): #Do this through DB as well
     along the x-axis
     in descending order (by rating).
     """
-    pass
+
+
 
 #Try calling your functions here
 def main():
-    pass
+    db = 'South_U_Restaurants.db'
 
 class TestHW8(unittest.TestCase):
     
