@@ -17,7 +17,17 @@ def load_rest_data(db):
     category,
     building, and rating for the restaurant.
     """
-    pass
+
+    conn = sqlite3.connect(db)
+    c = conn.cursor()
+    c.execute("SELECT name, category, building, rating FROM restaurants")
+    rows = c.fetchall()
+    rest_dict = {}
+    for row in rows:
+        rest_dict[row[0]] = {'category': row[1], 'building': row[2], 'rating': row[3]}
+    conn.close()
+    return rest_dict
+
 
 def plot_rest_categories(db):
     """
