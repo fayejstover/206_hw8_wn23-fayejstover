@@ -32,13 +32,37 @@ def load_rest_data(db):
 def plot_rest_categories(db):
     """
     This function accepts a file name of a database as a parameter and returns a
-    dictionary. The keys should be the
-    restaurant categories and the values should be the number of restaurants in
-    each category. The function should
-    also create a bar chart with restaurant categories and the count of number of
-    restaurants in each category.
+    dictionary. The keys should be the restaurant categories and the values should be
+    the number of restaurants in each category. The function should also create a bar
+    chart with restaurant categories and the count of number of restaurants in each
+    category.
     """
-    pass
+    # Connect to the database and create a cursor
+    conn = sqlite3.connect(db)
+    c = conn.cursor()
+    
+    # Execute a query to get the count of restaurants in each category
+    c.execute("SELECT category, COUNT(*) FROM restaurants GROUP BY category")
+    
+    # Fetch the results and create the dictionary
+    rest_categories = {}
+    for row in c.fetchall():
+        rest_categories[row[0]] = row[1]
+    
+    # Create the bar chart
+    plt.bar(rest_categories.keys(), rest_categories.values())
+    plt.xticks(rotation=90)
+    plt.xlabel('Restaurant Category')
+    plt.ylabel('Number of Restaurants')
+    plt.title('Number of Restaurants in Each Category')
+    plt.show()
+    
+    # Close the cursor and connection
+    c.close()
+    conn.close()
+    
+    return rest_categories
+
 
 def find_rest_in_building(building_num, db):
     '''
