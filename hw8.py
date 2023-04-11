@@ -9,7 +9,6 @@ import sqlite3
 import unittest
 
 
-
 def load_rest_data(db):
     """
     This function accepts the filename of a database as a parameter and returns a
@@ -45,28 +44,56 @@ def load_rest_data(db):
 
 
 
-
-def find_rest_in_building(building_num, db):
-    '''
-    This function accepts the building number and the filename of the database as
-    parameters and returns a list of
-    restaurant names. You need to find all the restaurant names which are in the
-    specific building. The restaurants
-    should be sorted by their rating from highest to lowest.
-    '''
-
+def plot_rest_categories(db):
+    """
+    This function accepts a file name of a database as a parameter and returns a
+    dictionary. The keys should be the restaurant categories and the values should be
+    the number of restaurants in each category. The function should also create a bar
+    chart with restaurant categories and the count of number of restaurants in each
+    category.
+    """
+    
     conn = sqlite3.connect(db)
     c = conn.cursor()
     
-    c.execute("SELECT name FROM restaurants WHERE building_id=? ORDER BY rating DESC", (building_num,))
-    results = c.fetchall()
-    restaurants = [row[0] for row in results]
-
+    # hint: use the SQL COUNT keyword
+    c.execute("""
+        SELECT categories.category, COUNT(restaurants.id) AS count
+        FROM categories
+        JOIN restaurants ON categories.id = restaurants.category_id
+        GROUP BY categories.category
+        ORDER BY count DESC
+    """)
+    
+    categories = dict(c.fetchall())
     conn.close()
 
-    return restaurants
-
+    # make bar chart
+    fig, ax = plt.subplots()
+    ax.barh(list(categories.keys()), list(categories.values()))
+    ax.set_xlabel('Number of Restaurants')
+    ax.set_ylabel('Restaurant Categories')
+    ax.set_title('Type of Restaurant on South University Ave')
+    plt.show()
     
+    return categories
+
+
+
+def find_rest_in_building(building_num, db_filename):
+    conn = sqlite3.connect(db_filename)
+    c = conn.cursor()
+    c.execute('''SELECT r.name
+                 FROM restaurants AS r
+                 JOIN buildings AS b
+                 ON r.building_id = b.id
+                 WHERE b.building = ?
+                 ORDER BY r.rating DESC''', (building_num,))
+    results = c.fetchall()
+    conn.close()
+    return [r[0] for r in results]
+
+
 
 def get_highest_rating(db):
     """
@@ -141,13 +168,10 @@ def get_highest_rating(db):
     ax2.barh(y_pos, avg_ratings, align='center')
     ax2.set_yticks(y_pos)
     ax2.set_yticklabels(buildings)
+    
     plt.show()
-
     conn.close()
     return [(highest_category[0], highest_category[1]), (highest_building[0], highest_building[1])]
-
-
-
 
 
 #Try calling your functions here
@@ -186,6 +210,11 @@ class TestHW8(unittest.TestCase):
         self.assertEqual(rest_data['M-36 Coffee Roasters Cafe'], self.rest_dict)
         self.assertEqual(len(rest_data), 25)
 
+    def test_plot_rest_categories(self):
+        cat_data = plot_rest_categories('South_U_Restaurants.db')
+        self.assertIsInstance(cat_data, dict)
+        self.assertEqual(cat_data, self.cat_dict)
+        self.assertEqual(len(cat_data), 14)
 
     def test_find_rest_in_building(self):
         restaurant_list = find_rest_in_building(1140, 'South_U_Restaurants.db')
