@@ -45,41 +45,6 @@ def load_rest_data(db):
 
 
 
-def plot_rest_categories(db):
-    """
-    This function accepts a file name of a database as a parameter and returns a
-    dictionary. The keys should be the restaurant categories and the values should be
-    the number of restaurants in each category. The function should also create a bar
-    chart with restaurant categories and the count of number of restaurants in each
-    category.
-    """
-    
-    conn = sqlite3.connect(db)
-    c = conn.cursor()
-    
-    # hint: use the SQL COUNT keyword
-    c.execute("""
-        SELECT categories.category, COUNT(restaurants.id) AS count
-        FROM categories
-        JOIN restaurants ON categories.id = restaurants.category_id
-        GROUP BY categories.category
-        ORDER BY count DESC
-    """)
-    
-    categories = dict(c.fetchall())
-    conn.close()
-
-    # make bar chart
-    fig, ax = plt.subplots()
-    ax.barh(list(categories.keys()), list(categories.values()))
-    ax.set_xlabel('Number of Restaurants')
-    ax.set_ylabel('Restaurant Categories')
-    ax.set_title('Type of Restaurant on South University Ave')
-    plt.show()
-    
-    return categories
-
-
 
 def find_rest_in_building(building_num, db):
     '''
@@ -92,19 +57,20 @@ def find_rest_in_building(building_num, db):
 
     conn = sqlite3.connect(db)
     c = conn.cursor()
-
-    c.execute("SELECT name FROM restaurants WHERE building_id = ? ORDER BY rating DESC", (building_num,))
-    results = [row[0] for row in c.fetchall()]
+    
+    c.execute("SELECT name FROM restaurants WHERE building_id=? ORDER BY rating DESC", (building_num,))
+    results = c.fetchall()
+    restaurants = [row[0] for row in results]
 
     conn.close()
 
-    return results
+    return restaurants
+
     
 
-#EXTRA CREDIT
-def get_highest_rating(db): #Do this through DB as well
+def get_highest_rating(db):
     """
-    This function return a list of two tuples. The first tuple contains the
+    This function returns a list of two tuples. The first tuple contains the
     highest-rated restaurant category
     and the average rating of the restaurants in that category, and the second
     tuple contains the building number
@@ -117,6 +83,70 @@ def get_highest_rating(db): #Do this through DB as well
     along the x-axis
     in descending order (by rating).
     """
+    
+    conn = sqlite3.connect(db)
+    c = conn.cursor()
+
+    # Query to get the highest rated category
+    category_query = '''
+    SELECT categories.category, ROUND(AVG(restaurants.rating), 1)
+    FROM categories
+    JOIN restaurants ON categories.id = restaurants.category_id
+    GROUP BY categories.category
+    ORDER BY AVG(restaurants.rating) DESC;
+    '''
+
+    # Query to get the highest rated building
+    building_query = '''
+    SELECT buildings.building, ROUND(AVG(restaurants.rating), 1)
+    FROM buildings
+    JOIN restaurants ON buildings.id = restaurants.building_id
+    GROUP BY buildings.building
+    ORDER BY AVG(restaurants.rating) DESC;
+    '''
+
+    # Execute the queries and get the results
+    c.execute(category_query)
+    highest_category = c.fetchone()
+    c.execute(building_query)
+    highest_building = c.fetchone()
+
+    # Plot the bar charts
+    fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize=(8, 8))
+
+    # categories
+    ax1.set_title('Average Restaurant Ratings by Category')
+    ax1.set_xlabel('Rating')
+    ax1.set_ylabel('Categories')
+    ax1.set_xlim([0, 5])
+    c.execute(category_query)
+    results = c.fetchall()
+    categories = [row[0] for row in results]
+    avg_ratings = [row[1] for row in results]
+    y_pos = range(len(categories))
+    ax1.barh(y_pos, avg_ratings, align='center')
+    ax1.set_yticks(y_pos)
+    ax1.set_yticklabels(categories)
+
+    # buildings
+    ax2.set_title('Average Restaurant Ratings by Building')
+    ax2.set_xlabel('Ratings')
+    ax2.set_ylabel('Buildings')
+    ax2.set_xlim([0, 5])
+    c.execute(building_query)
+    results = c.fetchall()
+    buildings = [row[0] for row in results]
+    avg_ratings = [row[1] for row in results]
+    y_pos = range(len(buildings))
+    ax2.barh(y_pos, avg_ratings, align='center')
+    ax2.set_yticks(y_pos)
+    ax2.set_yticklabels(buildings)
+    plt.show()
+
+    conn.close()
+    return [(highest_category[0], highest_category[1]), (highest_building[0], highest_building[1])]
+
+
 
 
 
@@ -156,11 +186,6 @@ class TestHW8(unittest.TestCase):
         self.assertEqual(rest_data['M-36 Coffee Roasters Cafe'], self.rest_dict)
         self.assertEqual(len(rest_data), 25)
 
-    def test_plot_rest_categories(self):
-        cat_data = plot_rest_categories('South_U_Restaurants.db')
-        self.assertIsInstance(cat_data, dict)
-        self.assertEqual(cat_data, self.cat_dict)
-        self.assertEqual(len(cat_data), 14)
 
     def test_find_rest_in_building(self):
         restaurant_list = find_rest_in_building(1140, 'South_U_Restaurants.db')
